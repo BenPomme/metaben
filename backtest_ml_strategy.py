@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 
 from mt5_connector import MT5Connector
-from simple_ml_strategy import SimpleMlStrategy
+from simple_ml_strategy import SimpleMLStrategy
 
 # Setup logging
 logging.basicConfig(
@@ -145,7 +145,7 @@ class MLStrategyBacktester:
             Initialized strategy instance
         """
         # Initialize strategy
-        self.strategy = SimpleMlStrategy(
+        self.strategy = SimpleMLStrategy(
             symbol=self.symbol,
             primary_timeframe=self.primary_timeframe,
             secondary_timeframes=self.secondary_timeframes,
