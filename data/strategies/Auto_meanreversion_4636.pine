@@ -1,0 +1,48 @@
+//@version=5
+strategy("Auto_meanreversion_4636", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+int bbLength = 14 // Bollinger Bands Length
+float bbMult = 2.5 // Bollinger Bands Standard Deviation Multiplier
+int rsiLength = 14 // RSI Length
+int rsiOverbought = 70 // RSI Overbought Level
+int rsiOversold = 30 // RSI Oversold Level
+
+// Indicators
+[middle, upper, lower] = ta.bb(close, 14, 2.5)
+rsi14 = ta.rsi(close, 14)
+
+// Strategy Logic
+longCondition = close < lower
+shortCondition = close > upper
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = close > middle
+shortExitCondition = close < middle
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+
+strategy.exit("TP", "Long", limit=strategy.position_avg_price * (1 + 9.857158725352082 / 100))
+strategy.exit("TP", "Short", limit=strategy.position_avg_price * (1 - 9.857158725352082 / 100))
+
+// Plotting
+plot(middle, color=color.yellow, title='BB Middle')
+plot(upper, color=color.red, title='BB Upper')
+plot(lower, color=color.green, title='BB Lower')
+hline(70, color=color.red, linestyle=hline.style_dashed)
+hline(30, color=color.green, linestyle=hline.style_dashed)
+plot(rsi14, color=color.purple, title='RSI 14')
+ 

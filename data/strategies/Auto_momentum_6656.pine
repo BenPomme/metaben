@@ -1,0 +1,40 @@
+//@version=5
+strategy("Auto_momentum_6656", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+int macdFast = 12 // MACD Fast Length
+int macdSlow = 26 // MACD Slow Length
+int macdSignal = 9 // MACD Signal Length
+
+// Indicators
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+
+// Strategy Logic
+longCondition = ta.crossover(macdLine, signalLine)
+shortCondition = ta.crossunder(macdLine, signalLine)
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = ta.crossunder(macdLine, signalLine)
+shortExitCondition = ta.crossover(macdLine, signalLine)
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+
+
+// Plotting
+plot(macdLine, color=color.blue, title='MACD Line')
+plot(signalLine, color=color.red, title='Signal Line')
+plot(histLine, color=color.green, title='Histogram')
+ 

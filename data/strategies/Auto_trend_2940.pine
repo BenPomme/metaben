@@ -1,0 +1,44 @@
+//@version=5
+strategy("Auto_trend_2940", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+int emaLength = 50 // Exponential Moving Average Length
+int bbLength = 14 // Bollinger Bands Length
+float bbMult = 2.5 // Bollinger Bands Standard Deviation Multiplier
+
+// Indicators
+ema50 = ta.ema(close, 50)
+[middle, upper, lower] = ta.bb(close, 14, 2.5)
+
+// Strategy Logic
+longCondition = close > ema50
+shortCondition = close < ema50
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = close < ema50
+shortExitCondition = close > ema50
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+
+strategy.exit("TP", "Long", limit=strategy.position_avg_price * (1 + 4.081033120630313 / 100))
+strategy.exit("TP", "Short", limit=strategy.position_avg_price * (1 - 4.081033120630313 / 100))
+
+// Plotting
+plot(ema50, color=color.red, title='EMA 50')
+plot(middle, color=color.yellow, title='BB Middle')
+plot(upper, color=color.red, title='BB Upper')
+plot(lower, color=color.green, title='BB Lower')
+ 

@@ -1,0 +1,63 @@
+//@version=5
+strategy("{{strategy_name}}", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+{% for param in parameters %}
+{{param.type}} {{param.name}} = {{param.default}} {{param.description}}
+{% endfor %}
+
+// Indicators
+{% for indicator in indicators %}
+{{indicator.code}}
+{% endfor %}
+
+// Strategy Logic
+{% if strategy_type == "trend_following" %}
+longCondition = {{entry_long_condition}}
+shortCondition = {{entry_short_condition}}
+{% elif strategy_type == "mean_reversion" %}
+longCondition = {{entry_long_condition}}
+shortCondition = {{entry_short_condition}}
+{% elif strategy_type == "breakout" %}
+longCondition = {{entry_long_condition}}
+shortCondition = {{entry_short_condition}}
+{% elif strategy_type == "oscillator" %}
+longCondition = {{entry_long_condition}}
+shortCondition = {{entry_short_condition}}
+{% else %}
+longCondition = {{entry_long_condition}}
+shortCondition = {{entry_short_condition}}
+{% endif %}
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = {{exit_long_condition}}
+shortExitCondition = {{exit_short_condition}}
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+{% if use_stop_loss %}
+strategy.exit("SL", "Long", stop=strategy.position_avg_price * (1 - {{stop_loss_percent}} / 100))
+strategy.exit("SL", "Short", stop=strategy.position_avg_price * (1 + {{stop_loss_percent}} / 100))
+{% endif %}
+
+{% if use_take_profit %}
+strategy.exit("TP", "Long", limit=strategy.position_avg_price * (1 + {{take_profit_percent}} / 100))
+strategy.exit("TP", "Short", limit=strategy.position_avg_price * (1 - {{take_profit_percent}} / 100))
+{% endif %}
+
+// Plotting
+{% for plot in plots %}
+{{plot.code}}
+{% endfor %} 

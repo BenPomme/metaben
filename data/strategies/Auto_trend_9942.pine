@@ -1,0 +1,53 @@
+//@version=5
+strategy("Auto_trend_9942", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+int macdFast = 12 // MACD Fast Length
+int macdSlow = 26 // MACD Slow Length
+int macdSignal = 5 // MACD Signal Length
+int emaLength = 14 // Exponential Moving Average Length
+int bbLength = 14 // Bollinger Bands Length
+float bbMult = 1.5 // Bollinger Bands Standard Deviation Multiplier
+
+// Indicators
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 5)
+ema14 = ta.ema(close, 14)
+[middle, upper, lower] = ta.bb(close, 14, 1.5)
+
+// Strategy Logic
+longCondition = ta.crossover(macdLine, signalLine)
+shortCondition = ta.crossunder(macdLine, signalLine)
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = ta.crossunder(macdLine, signalLine)
+shortExitCondition = ta.crossover(macdLine, signalLine)
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+strategy.exit("SL", "Long", stop=strategy.position_avg_price * (1 - 2.932253058130821 / 100))
+strategy.exit("SL", "Short", stop=strategy.position_avg_price * (1 + 2.932253058130821 / 100))
+
+strategy.exit("TP", "Long", limit=strategy.position_avg_price * (1 + 8.337299547606168 / 100))
+strategy.exit("TP", "Short", limit=strategy.position_avg_price * (1 - 8.337299547606168 / 100))
+
+// Plotting
+plot(macdLine, color=color.blue, title='MACD Line')
+plot(signalLine, color=color.red, title='Signal Line')
+plot(histLine, color=color.green, title='Histogram')
+plot(ema14, color=color.red, title='EMA 14')
+plot(middle, color=color.yellow, title='BB Middle')
+plot(upper, color=color.red, title='BB Upper')
+plot(lower, color=color.green, title='BB Lower')
+ 

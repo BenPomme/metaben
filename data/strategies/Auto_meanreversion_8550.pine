@@ -1,0 +1,46 @@
+//@version=5
+strategy("Auto_meanreversion_8550", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+int bbLength = 14 // Bollinger Bands Length
+float bbMult = 1.5 // Bollinger Bands Standard Deviation Multiplier
+int rsiLength = 21 // RSI Length
+int rsiOverbought = 70 // RSI Overbought Level
+int rsiOversold = 30 // RSI Oversold Level
+
+// Indicators
+[middle, upper, lower] = ta.bb(close, 14, 1.5)
+rsi21 = ta.rsi(close, 21)
+
+// Strategy Logic
+longCondition = close < lower
+shortCondition = close > upper
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = close > middle
+shortExitCondition = close < middle
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+
+
+// Plotting
+plot(middle, color=color.yellow, title='BB Middle')
+plot(upper, color=color.red, title='BB Upper')
+plot(lower, color=color.green, title='BB Lower')
+hline(70, color=color.red, linestyle=hline.style_dashed)
+hline(30, color=color.green, linestyle=hline.style_dashed)
+plot(rsi21, color=color.purple, title='RSI 21')
+ 

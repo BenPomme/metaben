@@ -1,0 +1,47 @@
+//@version=5
+strategy("Auto_trend_9184", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+int rsiLength = 7 // RSI Length
+int rsiOverbought = 70 // RSI Overbought Level
+int rsiOversold = 30 // RSI Oversold Level
+int macdFast = 8 // MACD Fast Length
+int macdSlow = 21 // MACD Slow Length
+int macdSignal = 9 // MACD Signal Length
+
+// Indicators
+rsi7 = ta.rsi(close, 7)
+[macdLine, signalLine, histLine] = ta.macd(close, 8, 21, 9)
+
+// Strategy Logic
+longCondition = rsi7 < 30 and rsi7 > rsi7[1]
+shortCondition = rsi7 > 70 and rsi7 < rsi7[1]
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = rsi7 > 50
+shortExitCondition = rsi7 < 50
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+
+
+// Plotting
+hline(70, color=color.red, linestyle=hline.style_dashed)
+hline(30, color=color.green, linestyle=hline.style_dashed)
+plot(rsi7, color=color.purple, title='RSI 7')
+plot(macdLine, color=color.blue, title='MACD Line')
+plot(signalLine, color=color.red, title='Signal Line')
+plot(histLine, color=color.green, title='Histogram')
+ 

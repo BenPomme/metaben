@@ -1,0 +1,45 @@
+//@version=5
+strategy("Auto_breakout_4953", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+int emaLength = 14 // Exponential Moving Average Length
+int smaLength = 50 // Simple Moving Average Length
+int bbLength = 20 // Bollinger Bands Length
+float bbMult = 1.5 // Bollinger Bands Standard Deviation Multiplier
+
+// Indicators
+ema14 = ta.ema(close, 14)
+sma50 = ta.sma(close, 50)
+[middle, upper, lower] = ta.bb(close, 20, 1.5)
+
+// Strategy Logic
+longCondition = close > upper and close[1] <= upper[1]
+shortCondition = close < lower and close[1] >= lower[1]
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = close < middle
+shortExitCondition = close > middle
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+
+
+// Plotting
+plot(ema14, color=color.red, title='EMA 14')
+plot(sma50, color=color.blue, title='SMA 50')
+plot(middle, color=color.yellow, title='BB Middle')
+plot(upper, color=color.red, title='BB Upper')
+plot(lower, color=color.green, title='BB Lower')
+ 

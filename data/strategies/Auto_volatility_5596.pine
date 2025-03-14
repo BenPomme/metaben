@@ -1,0 +1,46 @@
+//@version=5
+strategy("Auto_volatility_5596", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Input Parameters
+int rsiLength = 21 // RSI Length
+int rsiOverbought = 70 // RSI Overbought Level
+int rsiOversold = 30 // RSI Oversold Level
+int emaLength = 200 // Exponential Moving Average Length
+int smaLength = 20 // Simple Moving Average Length
+
+// Indicators
+rsi21 = ta.rsi(close, 21)
+ema200 = ta.ema(close, 200)
+sma20 = ta.sma(close, 20)
+
+// Strategy Logic
+longCondition = rsi21 < 30 and rsi21 > rsi21[1]
+shortCondition = rsi21 > 70 and rsi21 < rsi21[1]
+
+// Entry conditions
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Exit conditions
+longExitCondition = rsi21 > 50
+shortExitCondition = rsi21 < 50
+
+if (longExitCondition)
+    strategy.close("Long")
+
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Optional: Risk Management
+
+
+// Plotting
+hline(70, color=color.red, linestyle=hline.style_dashed)
+hline(30, color=color.green, linestyle=hline.style_dashed)
+plot(rsi21, color=color.purple, title='RSI 21')
+plot(ema200, color=color.red, title='EMA 200')
+plot(sma20, color=color.blue, title='SMA 20')
+ 
