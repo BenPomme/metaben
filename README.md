@@ -1,163 +1,96 @@
-# Advanced Trading Strategy with MetaTrader 5 Integration
+# ML-Enhanced Trading Strategy
 
-## Overview
+A sophisticated trading strategy that combines traditional technical analysis with machine learning and OpenAI integration to make trading decisions.
 
-This project implements an advanced trading strategy system that targets approximately 1% daily profit using an adaptive moving average approach. The system integrates with MetaTrader 5 for obtaining market data and executing trades.
+## Features
 
-Key features include:
-- Multi-timeframe analysis for stronger trade signals
-- Adaptive volatility-based position sizing
-- Dynamic stop-loss and take-profit levels
-- Trend filters to avoid trading against major trends
-- Parameter optimization capabilities
-- Comprehensive backtesting with performance metrics
-- Live trading functionality with risk management
+- **Multi-timeframe analysis**: Analyzes price data across multiple timeframes (H1, H4, D1) for more robust signals
+- **Machine Learning**: Uses machine learning models to identify high-probability trading opportunities
+- **Adaptive parameters**: Adjusts risk parameters based on market volatility and ML confidence
+- **OpenAI integration**: Incorporates market analysis from OpenAI's GPT models
+- **Live trading capability**: Can be used for both backtesting and live trading
 
-## Requirements
+## Components
 
-- Python 3.8 or higher
-- MetaTrader 5 (installed and configured with an account)
-- Required Python packages (see `requirements_mt5.txt`)
+The system consists of several key components:
 
-## Platform Compatibility
+1. **Base Adaptive Moving Average Strategy** (`adaptive_ma_strategy.py`): The foundation strategy using moving averages
+2. **MT5 Connector** (`mt5_connector.py`): Handles communication with MetaTrader 5
+3. **ML-Enhanced Strategy** (`ml_enhanced_strategy.py`): Extends the base strategy with ML capabilities
+4. **Simplified ML Strategy** (`simple_ml_strategy.py`): A version without Pydantic dependencies
+5. **Live Trading Script** (`trade_with_ml.py`): Script for executing trades in real-time
 
-**Important Note**: The MetaTrader 5 Python package (`MetaTrader5`) is officially available only for Windows. If you're using this system on a different operating system, consider the following options:
+## Getting Started
 
-### For Windows Users:
-- Install MetaTrader 5 and the Python package directly.
-- Follow the standard installation instructions below.
+### Prerequisites
 
-### For macOS/Linux Users:
-1. **Virtual Machine Option**: Run Windows in a virtual machine with MetaTrader 5 installed.
-2. **Wine Option**: Try using Wine to run MetaTrader 5 (results may vary).
-3. **Cloud Option**: Use a Windows VPS/cloud service to host MetaTrader 5 and this trading system.
-4. **Bridge Services**: Consider third-party services like MetaAPI.cloud that provide REST/WebSocket access to MT5.
+- Python 3.8+
+- MetaTrader 5 installed
+- An OpenAI API key
 
-## Installation
+### Installation
 
-1. Clone this repository:
-```
-git clone <repository-url>
-cd trading-strategy-mt5
-```
+1. Clone this repository
+2. Install required packages:
+   ```
+   pip install -r requirements.txt
+   ```
+3. Set your OpenAI API key in the `.env` file:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
 
-2. Install the required packages:
-```
-pip install -r requirements_mt5.txt
-```
-Note: This will only work on Windows for the MetaTrader5 package. Other dependencies will install on any OS.
+### Usage
 
-3. Make sure MetaTrader 5 is installed and properly set up with a demo or live account.
+#### Running the test script
 
-## System Architecture
-
-The system consists of several modules:
-
-1. **MT5 Connector** (`mt5_connector.py`): Handles connection to MetaTrader 5, data retrieval, and order execution.
-
-2. **Adaptive MA Strategy** (`adaptive_ma_strategy.py`): Implements the core trading strategy logic using adaptive moving averages across multiple timeframes.
-
-3. **Strategy Backtest** (`strategy_backtest.py`): Provides backtesting capabilities with detailed performance metrics.
-
-4. **Strategy Optimizer** (`strategy_optimizer.py`): Implements parameter optimization to find the best settings for the strategy.
-
-5. **Trading Application** (`trading_app.py`): Ties everything together into a user-friendly command-line application.
-
-## Usage
-
-### Command Line Arguments
-
-The trading application supports the following command-line arguments:
-
-- `--symbol`: Trading symbol (default: EURUSD)
-- `--timeframe`: Primary timeframe (default: H1)
-- `--secondary`: Secondary timeframes (default: H4 D1)
-- `--mode`: Operation mode (backtest, optimize, or live)
-- `--start`: Start date for backtest/optimization (YYYY-MM-DD)
-- `--end`: End date for backtest/optimization (YYYY-MM-DD)
-- `--balance`: Initial balance for backtest (default: 10000.0)
-- `--config`: Strategy configuration file (default: strategy_config.json)
-
-### Running a Backtest
-
-```
-python trading_app.py --mode backtest --symbol EURUSD --timeframe H1 --secondary H4 D1 --start 2023-01-01 --end 2023-12-31
+```bash
+python test_simple_ml_strategy.py
 ```
 
-### Optimizing the Strategy Parameters
+This will run a test of the ML-enhanced strategy using historical data.
+
+#### Running the live trading script
+
+```bash
+# Demo mode (simulated trades)
+python trade_with_ml.py --symbol EURUSD --primary H1 --secondary H4 D1 --interval 5 --demo
+
+# Live mode (real trades)
+python trade_with_ml.py --symbol EURUSD --primary H1 --secondary H4 D1 --interval 5
+```
+
+## Strategy Logic
+
+1. **Data Collection**: Gathers historical price data across multiple timeframes
+2. **Feature Engineering**: Calculates technical indicators and features for ML
+3. **ML Model Training**: Trains a model to identify profitable trade setups
+4. **Signal Generation**: Combines traditional signals, ML predictions, and market analysis
+5. **Risk Management**: Dynamically adjusts position sizing and stop-loss levels
+6. **Execution**: Places trades with appropriate parameters
+
+## File Structure
 
 ```
-python trading_app.py --mode optimize --symbol EURUSD --timeframe H1 --secondary H4 D1 --start 2023-01-01 --end 2023-12-31
+├── adaptive_ma_strategy.py    # Base strategy
+├── ml_enhanced_strategy.py    # Full ML strategy with Pydantic
+├── mt5_connector.py           # MT5 connection handler
+├── simple_ml_strategy.py      # Simplified ML strategy
+├── test_simple_ml_strategy.py # Test script
+├── trade_with_ml.py           # Live trading script
+├── utils/
+│   ├── config_manager.py      # Configuration management
+│   ├── logging_config.py      # Logging setup
+│   ├── openai_service.py      # OpenAI integration
+│   └── technical_indicators.py # Technical indicator calculations
+├── .env                       # Environment variables
+└── requirements.txt           # Dependencies
 ```
-
-### Running Live Trading
-
-```
-python trading_app.py --mode live --symbol EURUSD --timeframe H1 --secondary H4 D1
-```
-
-## Strategy Configuration
-
-The strategy parameters are stored in a JSON configuration file (`strategy_config.json`). The default configuration includes:
-
-- Moving average periods (fast and slow)
-- Moving average types (EMA, SMA)
-- ATR period and multipliers for stop-loss and take-profit
-- Risk percentage per trade
-- Trend filter settings
-- Volatility filter settings
-- Multi-timeframe weights
-- Confirmation threshold
-- Daily profit target (1.0%)
-
-You can modify these parameters manually or use the optimization mode to find the best settings.
-
-## Performance Metrics
-
-The backtest results include the following performance metrics:
-
-- Absolute and percentage returns
-- Compound Annual Growth Rate (CAGR)
-- Maximum drawdown
-- Sharpe ratio
-- Profit factor
-- Total number of trades
-- Win rate
-- Maximum consecutive losses
-
-## Risk Management
-
-The strategy implements several risk management features:
-
-1. **Position Sizing**: Each trade's position size is calculated based on the account balance and the defined risk percentage.
-
-2. **Adaptive Stop-Loss**: Stop-loss levels are dynamically calculated based on the Average True Range (ATR) to adapt to market volatility.
-
-3. **Take-Profit Levels**: Take-profit levels are also adaptive and based on the ATR.
-
-4. **Daily Profit Target**: The strategy aims for a 1% daily profit target.
-
-5. **Trend Filters**: Trades are only taken in the direction of the overall trend.
-
-## Trading Signals
-
-The strategy generates trading signals based on:
-
-1. Moving average crossovers on the primary timeframe
-2. Confirmation from moving averages on secondary timeframes
-3. Trend filter confirmation
-4. Volatility conditions
-
-Signals are strengthened when multiple timeframes align in the same direction.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Disclaimer
 
-Trading involves risk. This software is for educational purposes only. Use at your own risk. Past performance does not guarantee future results. 
+This software is for educational purposes only. Trading financial instruments carries significant risk. Always test thoroughly on demo accounts before considering real money trading.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 

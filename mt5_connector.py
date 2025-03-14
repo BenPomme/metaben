@@ -15,9 +15,24 @@ import pandas as pd
 import numpy as np
 import platform
 from datetime import datetime, timedelta
+import pytz
+import os
+import json
+import logging
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/mt5_connector.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger("mt5_connector")
 
 # Add platform check with helpful message
-import sys
 if platform.system() != "Windows":
     print("WARNING: MetaTrader5 Python package is only officially supported on Windows.")
     print("You are running on:", platform.system())
@@ -43,92 +58,217 @@ class MT5Connector:
     Connector class for MetaTrader 5
     """
     
-    def __init__(self, login=None, password=None, server=None, path=None):
-        """
-        Initialize the MT5 connector
-        
-        Args:
-            login: MT5 account login (optional)
-            password: MT5 account password (optional)
-            server: MT5 server name (optional)
-            path: Path to MT5 terminal executable (optional)
-        """
+    def __init__(self, server=None, login=None, password=None):
+        """Initialize MetaTrader 5 connection"""
+        self.connected = False
+        self.server = server
         self.login = login
         self.password = password
-        self.server = server
-        self.path = path
-        self.connected = False
+        self._data_cache = {}  # Add cache for data retrieval
+        self.account_info = None
+        self.mt5_path = "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
         
-        # Check if MT5 is available
-        if mt5 is None:
-            print("WARNING: MetaTrader5 package is not available. Connection will fail.")
-        
-        # Dictionary to map timeframe strings to MT5 timeframe constants
-        self.timeframes = {
-            "1m": mt5.TIMEFRAME_M1 if mt5 else 1,
-            "5m": mt5.TIMEFRAME_M5 if mt5 else 5,
-            "15m": mt5.TIMEFRAME_M15 if mt5 else 15,
-            "30m": mt5.TIMEFRAME_M30 if mt5 else 30,
-            "1h": mt5.TIMEFRAME_H1 if mt5 else 60,
-            "4h": mt5.TIMEFRAME_H4 if mt5 else 240,
-            "1d": mt5.TIMEFRAME_D1 if mt5 else 1440,
-            "1w": mt5.TIMEFRAME_W1 if mt5 else 10080,
-            "1mo": mt5.TIMEFRAME_MN1 if mt5 else 43200
-        }
-        
-        # Order type mapping
-        self.order_types = {
-            "buy": mt5.ORDER_TYPE_BUY,
-            "sell": mt5.ORDER_TYPE_SELL,
-            "buy_limit": mt5.ORDER_TYPE_BUY_LIMIT,
-            "sell_limit": mt5.ORDER_TYPE_SELL_LIMIT,
-            "buy_stop": mt5.ORDER_TYPE_BUY_STOP,
-            "sell_stop": mt5.ORDER_TYPE_SELL_STOP
-        }
-    
     def connect(self):
-        """
-        Connect to the MetaTrader 5 terminal
+        """Connect to MetaTrader 5"""
+        print("Initializing MT5...")
+        print(f"Using MT5 path: {self.mt5_path}")
         
-        Returns:
-            bool: True if connection successful, False otherwise
-        """
-        # Check if MT5 package is available
-        if mt5 is None:
-            print("ERROR: Cannot connect - MetaTrader5 package is not available on this platform.")
-            print("This is likely because you're not on Windows, which is required for MT5 Python integration.")
-            print("See README.md for alternative options for your platform.")
+        if not os.path.exists(self.mt5_path):
+            print(f"Error: MT5 not found at {self.mt5_path}")
             return False
             
-        # Initialize MT5 connection
-        if not mt5.initialize(path=self.path):
-            print(f"MT5 initialization failed. Error code: {mt5.last_error()}")
+        if not mt5.initialize(path=self.mt5_path):
+            print("initialize() failed")
+            print(f"Last error: {mt5.last_error()}")
             return False
+            
+        # Try to connect with credentials from environment
+        login = 7086870
+        password = "Babebibobu12!"
+        server = "FPMarketsLLC-Demo"
         
-        # Log in to trading account if credentials are provided
-        if self.login is not None and self.password is not None:
-            authorized = mt5.login(self.login, self.password, self.server)
-            if not authorized:
-                print(f"MT5 login failed. Error code: {mt5.last_error()}")
-                mt5.shutdown()
-                return False
-        
-        # Verify connection
-        if not mt5.terminal_info():
-            print("MT5 terminal info retrieval failed")
-            mt5.shutdown()
+        print(f"Attempting to connect to {server}...")
+        if not mt5.login(login, password, server):
+            print(f"Failed to connect to account #{login}")
+            print(f"Last error: {mt5.last_error()}")
             return False
-        
+            
+        # Get account info
+        self.account_info = mt5.account_info()._asdict()
         self.connected = True
-        print("Connected to MetaTrader 5")
+        print("Successfully connected to MT5!")
         return True
-    
+        
     def disconnect(self):
         """Disconnect from MetaTrader 5"""
-        if self.connected:
-            mt5.shutdown()
-            self.connected = False
-            print("Disconnected from MetaTrader 5")
+        mt5.shutdown()
+        self.connected = False
+        
+    def get_data(self, symbol, timeframe, start_date, end_date=None):
+        """Get historical data from MT5"""
+        if not self.connected:
+            logger.error("Not connected to MT5")
+            return None
+            
+        # Convert timeframe string to MT5 timeframe
+        timeframes = {
+            'M1': mt5.TIMEFRAME_M1,
+            'M5': mt5.TIMEFRAME_M5,
+            'M15': mt5.TIMEFRAME_M15,
+            'M30': mt5.TIMEFRAME_M30,
+            'H1': mt5.TIMEFRAME_H1,
+            'H4': mt5.TIMEFRAME_H4,
+            'D1': mt5.TIMEFRAME_D1,
+            'W1': mt5.TIMEFRAME_W1,
+            'MN1': mt5.TIMEFRAME_MN1
+        }
+        
+        tf = timeframes.get(timeframe, mt5.TIMEFRAME_H1)
+        
+        # Convert dates to UTC
+        timezone = pytz.timezone("Etc/UTC")
+        start_date = pd.Timestamp(start_date, tz=timezone)
+        if end_date is None:
+            end_date = datetime.now(timezone)
+        else:
+            end_date = pd.Timestamp(end_date, tz=timezone)
+            
+        # Check cache for existing data
+        cache_key = f"{symbol}_{timeframe}_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}"
+        if cache_key in self._data_cache:
+            logger.info(f"Using cached data for {symbol} {timeframe}")
+            return self._data_cache[cache_key]
+            
+        # For M1 timeframe with long date ranges, use chunking
+        if timeframe == 'M1' and (end_date - start_date).days > 30:
+            logger.info(f"Long date range for M1 timeframe, using chunked retrieval for {symbol}")
+            return self._get_chunked_data(symbol, tf, start_date, end_date)
+            
+        # Get the bars
+        logger.info(f"Retrieving data for {symbol} {timeframe} from {start_date} to {end_date}")
+        bars = mt5.copy_rates_range(symbol, tf, start_date, end_date)
+        
+        if bars is None or len(bars) == 0:
+            error_code = mt5.last_error()
+            logger.error(f"Failed to get data for {symbol}, error code: {error_code}")
+            return None
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(bars)
+        df['time'] = pd.to_datetime(df['time'], unit='s')
+        df.set_index('time', inplace=True)
+        
+        # Cache the data
+        self._data_cache[cache_key] = df
+        logger.info(f"Retrieved {len(df)} bars for {symbol} {timeframe}")
+        
+        return df
+        
+    def _get_chunked_data(self, symbol, timeframe_enum, start_date, end_date):
+        """Retrieve data in chunks for long date ranges"""
+        chunks = []
+        current_start = start_date
+        chunk_size = pd.Timedelta(days=30)
+        
+        while current_start < end_date:
+            current_end = min(current_start + chunk_size, end_date)
+            
+            logger.info(f"Retrieving chunk from {current_start} to {current_end}")
+            chunk = mt5.copy_rates_range(symbol, timeframe_enum, current_start, current_end)
+            
+            if chunk is None or len(chunk) == 0:
+                error_code = mt5.last_error()
+                logger.warning(f"Failed to get chunk for {symbol}, error code: {error_code}")
+                current_start = current_end
+                continue
+                
+            df_chunk = pd.DataFrame(chunk)
+            df_chunk['time'] = pd.to_datetime(df_chunk['time'], unit='s')
+            chunks.append(df_chunk)
+            
+            current_start = current_end
+            
+            # Prevent rate limiting
+            time.sleep(0.1)
+        
+        if not chunks:
+            logger.error(f"Failed to retrieve any data for {symbol}")
+            return None
+            
+        # Combine all chunks and set index
+        result = pd.concat(chunks)
+        result.set_index('time', inplace=True)
+        result = result[~result.index.duplicated(keep='first')]  # Remove duplicates
+        
+        logger.info(f"Retrieved {len(result)} total bars in chunked mode")
+        return result
+        
+    def place_order(self, symbol, order_type, volume, price=None, sl=None, tp=None, comment=""):
+        """Place a trading order with improved error handling"""
+        if not self.connected:
+            logger.error("Not connected to MT5")
+            return None
+            
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": volume,
+            "comment": comment,
+            "type": mt5.ORDER_TYPE_BUY if order_type.upper() == "BUY" else mt5.ORDER_TYPE_SELL,
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": mt5.ORDER_FILLING_IOC
+        }
+        
+        # Set price, stop loss and take profit if provided
+        if price is not None:
+            request["price"] = price
+        else:
+            # Get current market price
+            symbol_info = mt5.symbol_info_tick(symbol)
+            if not symbol_info:
+                logger.error(f"Failed to get symbol info for {symbol}")
+                return None
+                
+            request["price"] = symbol_info.ask if order_type.upper() == "BUY" else symbol_info.bid
+            
+        if sl is not None:
+            request["sl"] = sl
+        if tp is not None:
+            request["tp"] = tp
+            
+        logger.info(f"Sending order: {request}")
+        result = mt5.order_send(request)
+        
+        if result.retcode != mt5.TRADE_RETCODE_DONE:
+            error_map = {
+                10004: "Requote",
+                10006: "Order rejected",
+                10007: "Order canceled by client",
+                10008: "Order already executed",
+                10014: "Invalid volume",
+                10015: "Invalid price",
+                10016: "Invalid stops",
+                10019: "Market closed",
+                10021: "No prices"
+            }
+            error_description = error_map.get(result.retcode, f"Unknown error: {result.retcode}")
+            logger.error(f"Order failed: {error_description}")
+            return None
+            
+        logger.info(f"Order executed successfully: {result.order}")
+        return result.order
+        
+    def get_positions(self):
+        """Get current open positions"""
+        if not self.connected:
+            print("Not connected to MT5")
+            return None
+            
+        positions = mt5.positions_get()
+        if positions is None:
+            return []
+            
+        return [position._asdict() for position in positions]
     
     def get_account_info(self):
         """
@@ -141,22 +281,7 @@ class MT5Connector:
             print("Not connected to MT5")
             return None
         
-        account_info = mt5.account_info()
-        if account_info is None:
-            print(f"Failed to get account info. Error code: {mt5.last_error()}")
-            return None
-        
-        # Convert account info to dictionary
-        info = {
-            "balance": account_info.balance,
-            "equity": account_info.equity,
-            "margin": account_info.margin,
-            "free_margin": account_info.margin_free,
-            "leverage": account_info.leverage,
-            "currency": account_info.currency
-        }
-        
-        return info
+        return self.account_info
     
     def get_symbol_info(self, symbol):
         """
@@ -192,66 +317,6 @@ class MT5Connector:
         }
         
         return info
-    
-    def get_historical_data(self, symbol, timeframe, start_time=None, end_time=None, count=1000):
-        """
-        Get historical data from MT5
-        
-        Args:
-            symbol: Symbol name
-            timeframe: Timeframe string (e.g., '1h', '4h', '1d')
-            start_time: Start time as datetime object
-            end_time: End time as datetime object
-            count: Number of bars to retrieve
-            
-        Returns:
-            DataFrame: Historical data
-        """
-        if not self.connected:
-            print("Not connected to MT5")
-            return None
-            
-        # Validate timeframe
-        if timeframe not in self.timeframes:
-            print(f"Invalid timeframe: {timeframe}")
-            return None
-            
-        mt5_timeframe = self.timeframes[timeframe]
-        
-        # Set default time range if not provided
-        if end_time is None:
-            end_time = datetime.now()
-        if start_time is None and count is not None:
-            # If count provided and no start time, retrieve that many bars
-            rates = mt5.copy_rates_from(symbol, mt5_timeframe, end_time, count)
-        else:
-            # If start time provided, retrieve bars from that time
-            rates = mt5.copy_rates_range(symbol, mt5_timeframe, start_time, end_time)
-        
-        if rates is None or len(rates) == 0:
-            print(f"Failed to get historical data for {symbol}. Error code: {mt5.last_error()}")
-            return None
-            
-        # Convert to DataFrame
-        data = pd.DataFrame(rates)
-        
-        # Convert time to datetime
-        data['time'] = pd.to_datetime(data['time'], unit='s')
-        
-        # Rename columns to match our expected format
-        data = data.rename(columns={
-            'time': 'datetime',
-            'open': 'open',
-            'high': 'high',
-            'low': 'low',
-            'close': 'close',
-            'tick_volume': 'volume'
-        })
-        
-        # Set datetime as index
-        data.set_index('datetime', inplace=True)
-        
-        return data
     
     def calculate_lot_size(self, symbol, risk_percent, stop_loss_pips):
         """
@@ -307,79 +372,6 @@ class MT5Connector:
         lot_size = max(min_lot, min(lot_size, max_lot))
         
         return lot_size
-    
-    def open_position(self, symbol, order_type, volume, price=0, sl=0, tp=0, comment="", magic=0):
-        """
-        Open a trading position
-        
-        Args:
-            symbol: Trading symbol
-            order_type: Order type ('buy', 'sell', 'buy_limit', etc.)
-            volume: Position size in lots
-            price: Order price (used for pending orders)
-            sl: Stop loss level
-            tp: Take profit level
-            comment: Optional comment for the order
-            magic: Magic number for the order
-            
-        Returns:
-            int: Ticket number if successful, None otherwise
-        """
-        if not self.connected:
-            print("Not connected to MT5")
-            return None
-            
-        # Validate order type
-        if order_type not in self.order_types:
-            print(f"Invalid order type: {order_type}")
-            return None
-            
-        # Get symbol info
-        symbol_info = mt5.symbol_info(symbol)
-        if symbol_info is None:
-            print(f"Failed to get symbol info for {symbol}")
-            return None
-            
-        # Fill order request structure
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": float(volume),
-            "type": self.order_types[order_type],
-            "comment": comment,
-            "magic": magic,
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC
-        }
-        
-        # Set price depending on order type
-        if order_type in ["buy", "sell"]:
-            # For market orders, use current bid/ask
-            if order_type == "buy":
-                request["price"] = symbol_info.ask
-            else:
-                request["price"] = symbol_info.bid
-        else:
-            # For pending orders, use the provided price
-            request["price"] = price
-            
-        # Add SL/TP if provided
-        if sl > 0:
-            request["sl"] = sl
-        if tp > 0:
-            request["tp"] = tp
-            
-        # Send the order
-        result = mt5.order_send(request)
-        
-        # Check result
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            print(f"Order failed, retcode: {result.retcode}")
-            print(f"Error description: {result.comment}")
-            return None
-            
-        print(f"Order executed: ticket #{result.order}")
-        return result.order
     
     def close_position(self, ticket, volume=None):
         """

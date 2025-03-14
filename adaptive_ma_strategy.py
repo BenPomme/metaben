@@ -13,7 +13,7 @@ class AdaptiveMAStrategy:
     Adaptive Moving Average Strategy with multi-timeframe analysis
     """
     
-    def __init__(self, symbol, primary_timeframe='1h', 
+    def __init__(self, symbol, primary_timeframe='H1', 
                  secondary_timeframes=None, mt5_connector=None):
         """
         Initialize the Adaptive MA Strategy
@@ -26,39 +26,24 @@ class AdaptiveMAStrategy:
         """
         self.symbol = symbol
         self.primary_timeframe = primary_timeframe
-        self.secondary_timeframes = secondary_timeframes or ['4h', '1d']
+        self.secondary_timeframes = secondary_timeframes or ['H4', 'D1']
         self.mt5_connector = mt5_connector
         
-        # Default strategy parameters
-        self.params = {
-            # Base MA parameters
-            'fast_ma_period': 12,
-            'slow_ma_period': 26,
-            'signal_ma_period': 9,
-            
-            # ATR parameters
-            'atr_period': 14,
-            'atr_multiplier': 2.0,
-            
-            # Volatility adaptation
-            'volatility_lookback': 20,
-            'volatility_adjustment': True,
-            
-            # Risk parameters
-            'risk_percent': 1.0,
-            'target_profit_multiplier': 2.0,  # Risk:Reward ratio
-            
-            # Multi-timeframe weights
-            'primary_weight': 0.6,
-            'secondary_weights': [0.25, 0.15],
-            
-            # Trend filter
-            'trend_ma_period': 50,
-            'trend_filter_enabled': True,
-            
-            # Confirmation
-            'confirmation_threshold': 0.7  # Minimum signal strength [0-1]
-        }
+        # Initialize parameters with default values
+        self.fast_ma_period = 12
+        self.slow_ma_period = 26
+        self.signal_ma_period = 9
+        self.atr_period = 14
+        self.atr_multiplier = 2.0
+        self.volatility_lookback = 20
+        self.volatility_adjustment = True
+        self.risk_percent = 0.5
+        self.target_profit_multiplier = 2.0
+        self.primary_weight = 0.6
+        self.secondary_weights = [0.25, 0.15]
+        self.trend_ma_period = 50
+        self.trend_filter_enabled = True
+        self.confirmation_threshold = 0.7
         
         # Store data for each timeframe
         self.data = {}
@@ -84,233 +69,160 @@ class AdaptiveMAStrategy:
             return None
         
         # Load data for primary timeframe
-        self.data[self.primary_timeframe] = self.mt5_connector.get_historical_data(
+        self.data[self.primary_timeframe] = self.mt5_connector.get_data(
             self.symbol, self.primary_timeframe, 
-            start_time=start_date, end_time=end_date, count=count
+            start_date=start_date, end_date=end_date
         )
         
         # Load data for secondary timeframes
         for tf in self.secondary_timeframes:
-            self.data[tf] = self.mt5_connector.get_historical_data(
+            self.data[tf] = self.mt5_connector.get_data(
                 self.symbol, tf, 
-                start_time=start_date, end_time=end_date, count=count
+                start_date=start_date, end_date=end_date
             )
         
         return self.data
     
-    def calculate_indicators(self, data=None, timeframe=None):
-        """
-        Calculate indicators for a specific timeframe
-        
-        Args:
-            data: Data to calculate indicators on (optional, uses stored data if None)
-            timeframe: Timeframe to calculate for (optional, uses primary if None)
-            
-        Returns:
-            DataFrame: Data with indicators
-        """
-        if data is None:
-            if timeframe is None:
-                timeframe = self.primary_timeframe
-            
-            if timeframe not in self.data or self.data[timeframe] is None:
-                print(f"No data available for {timeframe}")
-                return None
-            
-            data = self.data[timeframe].copy()
-        
-        # Copy data to avoid modifying original
+    def calculate_indicators(self, data):
+        """Calculate technical indicators for the given data"""
         df = data.copy()
         
-        # Get parameters for calculations
-        fast_period = self.params['fast_ma_period']
-        slow_period = self.params['slow_ma_period']
-        signal_period = self.params['signal_ma_period']
-        atr_period = self.params['atr_period']
-        trend_period = self.params['trend_ma_period']
+        # Calculate EMAs
+        df['fast_ema'] = df['close'].ewm(span=self.fast_ma_period, adjust=False).mean()
+        df['slow_ema'] = df['close'].ewm(span=self.slow_ma_period, adjust=False).mean()
+        df['trend_ema'] = df['close'].ewm(span=self.trend_ma_period, adjust=False).mean()
         
-        # Adjust periods based on volatility if enabled
-        if self.params['volatility_adjustment']:
-            # Calculate price volatility (standard deviation of returns)
-            returns = df['close'].pct_change(1).dropna()
-            volatility = returns.rolling(self.params['volatility_lookback']).std().iloc[-1]
-            
-            # Adjust periods - shorter during high volatility, longer during low volatility
-            # Define volatility ranges (these would need to be tuned for the specific instrument)
-            avg_volatility = 0.01  # 1% daily volatility is considered average
-            
-            # If volatility is higher than average, decrease periods
-            # If volatility is lower than average, increase periods
-            volatility_ratio = volatility / avg_volatility
-            
-            # Adjust with a maximum change of ±40%
-            adjustment_factor = max(0.6, min(1.4, volatility_ratio))
-            
-            # Adjust periods (ensure they remain integers)
-            fast_period = max(5, int(fast_period / adjustment_factor))
-            slow_period = max(10, int(slow_period / adjustment_factor))
-            signal_period = max(5, int(signal_period / adjustment_factor))
+        # Calculate MACD
+        df['macd'] = df['fast_ema'] - df['slow_ema']
+        df['signal'] = df['macd'].ewm(span=self.signal_ma_period, adjust=False).mean()
+        df['macd_hist'] = df['macd'] - df['signal']
         
-        # Calculate Exponential Moving Averages
-        df['fast_ema'] = df['close'].ewm(span=fast_period, adjust=False).mean()
-        df['slow_ema'] = df['close'].ewm(span=slow_period, adjust=False).mean()
-        
-        # Calculate MACD line and signal line
-        df['macd_line'] = df['fast_ema'] - df['slow_ema']
-        df['signal_line'] = df['macd_line'].ewm(span=signal_period, adjust=False).mean()
-        df['macd_histogram'] = df['macd_line'] - df['signal_line']
-        
-        # Calculate trend direction
-        df['trend_ma'] = df['close'].rolling(window=trend_period).mean()
-        df['trend_direction'] = np.where(df['close'] > df['trend_ma'], 1, -1)
-        
-        # Calculate ATR for stop loss and take profit
-        high_low = df['high'] - df['low']
-        high_close = np.abs(df['high'] - df['close'].shift())
-        low_close = np.abs(df['low'] - df['close'].shift())
-        
-        tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-        df['atr'] = tr.rolling(window=atr_period).mean()
-        
-        # Generate raw signals
-        df['raw_signal'] = 0.0
-        
-        # Determine signal direction
-        df.loc[(df['macd_line'] > df['signal_line']), 'raw_signal'] = 1.0
-        df.loc[(df['macd_line'] < df['signal_line']), 'raw_signal'] = -1.0
-        
-        # Determine signal strength based on histogram magnitude
-        # Normalize histogram by using a rolling max to scale between 0-1
-        df['hist_abs'] = np.abs(df['macd_histogram'])
-        df['hist_max'] = df['hist_abs'].rolling(50).max()
-        df['signal_strength'] = df['hist_abs'] / df['hist_max'].replace(0, 1)
-        
-        # Apply trend filter if enabled
-        if self.params['trend_filter_enabled']:
-            df['filtered_signal'] = df['raw_signal'] * np.where(
-                df['raw_signal'] == df['trend_direction'], 1, 0)
-        else:
-            df['filtered_signal'] = df['raw_signal']
-        
-        # Calculate stop loss and take profit levels
-        df['stop_loss_long'] = df['close'] - (df['atr'] * self.params['atr_multiplier'])
-        df['stop_loss_short'] = df['close'] + (df['atr'] * self.params['atr_multiplier'])
-        df['take_profit_long'] = df['close'] + (df['atr'] * self.params['atr_multiplier'] * 
-                                            self.params['target_profit_multiplier'])
-        df['take_profit_short'] = df['close'] - (df['atr'] * self.params['atr_multiplier'] * 
-                                             self.params['target_profit_multiplier'])
+        # Calculate ATR
+        df['tr1'] = abs(df['high'] - df['low'])
+        df['tr2'] = abs(df['high'] - df['close'].shift())
+        df['tr3'] = abs(df['low'] - df['close'].shift())
+        df['tr'] = df[['tr1', 'tr2', 'tr3']].max(axis=1)
+        df['atr'] = df['tr'].ewm(span=self.atr_period, adjust=False).mean()
         
         return df
     
-    def calculate_multi_timeframe_signal(self):
-        """
-        Calculate a consolidated signal from all timeframes
-        
-        Returns:
-            tuple: (signal, strength) where signal is -1 (sell), 0 (neutral), or 1 (buy)
-                  and strength is 0-1.
-        """
-        signals = {}
-        strengths = {}
-        
-        # Calculate signals for each timeframe
-        for i, tf in enumerate([self.primary_timeframe] + self.secondary_timeframes):
-            if tf in self.data and self.data[tf] is not None:
-                data_with_indicators = self.calculate_indicators(timeframe=tf)
-                
-                if data_with_indicators is not None and len(data_with_indicators) > 0:
-                    # Get the most recent signal
-                    signals[tf] = data_with_indicators['filtered_signal'].iloc[-1]
-                    strengths[tf] = data_with_indicators['signal_strength'].iloc[-1]
-        
-        # If we don't have signals for all timeframes, return neutral
-        if len(signals) != len([self.primary_timeframe] + self.secondary_timeframes):
+    def get_signal(self, data):
+        """Get trading signal for the given timeframe data"""
+        if data is None or len(data) < self.slow_ma_period:
             return 0, 0.0
+            
+        # Calculate indicators
+        df = self.calculate_indicators(data)
         
-        # Get weights for each timeframe
-        weights = [self.params['primary_weight']] + self.params['secondary_weights']
+        # Get the latest values
+        current = df.iloc[-1]
         
-        # Calculate weighted signal
-        weighted_signal = 0
-        for i, tf in enumerate([self.primary_timeframe] + self.secondary_timeframes):
-            weighted_signal += signals[tf] * strengths[tf] * weights[i]
+        # Determine trend
+        trend = 1 if current['close'] > current['trend_ema'] else -1
         
-        # Determine final signal type
-        if weighted_signal > self.params['confirmation_threshold']:
+        # Calculate signal
+        if current['macd'] > current['signal']:
             signal = 1
-        elif weighted_signal < -self.params['confirmation_threshold']:
+        elif current['macd'] < current['signal']:
             signal = -1
         else:
             signal = 0
-        
+            
+        # Apply trend filter if enabled
+        if self.trend_filter_enabled and signal != 0:
+            signal = signal if signal == trend else 0
+            
         # Calculate signal strength [0-1]
-        strength = abs(weighted_signal)
-        
+        if signal != 0:
+            # Normalize MACD histogram
+            hist_max = df['macd_hist'].abs().rolling(window=20).max().iloc[-1]
+            strength = min(1.0, abs(current['macd_hist']) / hist_max if hist_max > 0 else 0)
+        else:
+            strength = 0.0
+            
         return signal, strength
     
+    def calculate_multi_timeframe_signal(self):
+        """Calculate consolidated signal from all timeframes"""
+        if not self.data:
+            return 0, 0.0
+            
+        signals = {}
+        strengths = {}
+        
+        # Get signals for each timeframe
+        signals[self.primary_timeframe], strengths[self.primary_timeframe] = self.get_signal(self.data[self.primary_timeframe])
+        
+        for tf in self.secondary_timeframes:
+            if tf in self.data:
+                signals[tf], strengths[tf] = self.get_signal(self.data[tf])
+                
+        # Calculate weighted signal
+        weights = [self.primary_weight] + self.secondary_weights
+        timeframes = [self.primary_timeframe] + self.secondary_timeframes
+        
+        weighted_signal = 0
+        for tf, w in zip(timeframes, weights):
+            if tf in signals:
+                weighted_signal += signals[tf] * strengths[tf] * w
+                
+        # Determine final signal
+        if abs(weighted_signal) >= self.confirmation_threshold:
+            final_signal = 1 if weighted_signal > 0 else -1
+        else:
+            final_signal = 0
+            
+        return final_signal, abs(weighted_signal)
+    
     def generate_trade_parameters(self):
-        """
-        Generate trade parameters including entry, stop loss, and take profit
-        
-        Returns:
-            dict: Trade parameters
-        """
-        # Make sure we have data for the primary timeframe
-        if self.primary_timeframe not in self.data or self.data[self.primary_timeframe] is None:
-            print("No data available for the primary timeframe")
+        """Generate trade parameters if there's a valid signal"""
+        if not self.data or self.primary_timeframe not in self.data:
             return None
-        
-        # Calculate signal
-        self.current_signal, self.signal_strength = self.calculate_multi_timeframe_signal()
-        
-        # If no signal, return None
-        if self.current_signal == 0:
+            
+        signal, strength = self.calculate_multi_timeframe_signal()
+        if signal == 0:
             return None
-        
-        # Get the indicator data
-        primary_data = self.calculate_indicators(timeframe=self.primary_timeframe)
+            
+        # Calculate indicators for current data
+        df = self.calculate_indicators(self.data[self.primary_timeframe])
+        current_data = df.iloc[-1]
         
         # Get current price and ATR
-        current_price = primary_data['close'].iloc[-1]
-        current_atr = primary_data['atr'].iloc[-1]
+        entry_price = current_data['close']
+        atr = current_data['atr']  # Using ATR instead of TR
         
-        # Calculate stop loss and take profit levels
-        if self.current_signal == 1:  # Buy signal
-            entry_price = current_price
-            stop_loss = primary_data['stop_loss_long'].iloc[-1]
-            take_profit = primary_data['take_profit_long'].iloc[-1]
-        else:  # Sell signal
-            entry_price = current_price
-            stop_loss = primary_data['stop_loss_short'].iloc[-1]
-            take_profit = primary_data['take_profit_short'].iloc[-1]
-        
-        # Calculate stop loss distance in pips
-        pip_size = 0.0001 if len(str(int(current_price)).split('.')[0]) <= 2 else 0.01
-        stop_distance_pips = abs(entry_price - stop_loss) / pip_size
-        
+        if signal == 1:  # Buy
+            stop_loss = entry_price - (atr * self.atr_multiplier)
+            take_profit = entry_price + (atr * self.atr_multiplier * self.target_profit_multiplier)
+        else:  # Sell
+            stop_loss = entry_price + (atr * self.atr_multiplier)
+            take_profit = entry_price - (atr * self.atr_multiplier * self.target_profit_multiplier)
+            
         # Calculate position size based on risk
-        position_size = 0.01  # Default minimum
-        if self.mt5_connector is not None and self.mt5_connector.connected:
-            position_size = self.mt5_connector.calculate_lot_size(
-                self.symbol, 
-                self.params['risk_percent'], 
-                stop_distance_pips
-            )
+        account_info = self.mt5_connector.get_account_info()
+        if account_info is None:
+            return None
+            
+        risk_amount = account_info['balance'] * (self.risk_percent / 100)
+        pip_value = 0.0001  # For EURUSD
         
-        # Generate trade parameters
-        trade_params = {
-            'symbol': self.symbol,
-            'order_type': 'buy' if self.current_signal == 1 else 'sell',
+        # Calculate stop loss in pips
+        sl_pips = abs(entry_price - stop_loss) / pip_value
+        
+        # Calculate lot size
+        lot_size = risk_amount / (sl_pips * 10)  # $10 per pip per lot for EURUSD
+        lot_size = round(lot_size, 2)  # Round to 2 decimal places
+        
+        return {
+            'signal': signal,
+            'strength': strength,
             'entry_price': entry_price,
             'stop_loss': stop_loss,
             'take_profit': take_profit,
-            'position_size': position_size,
-            'signal_strength': self.signal_strength,
-            'risk_percent': self.params['risk_percent'],
-            'risk_reward_ratio': self.params['target_profit_multiplier'],
+            'position_size': lot_size,
+            'risk_amount': risk_amount,
+            'potential_profit': risk_amount * self.target_profit_multiplier
         }
-        
-        return trade_params
     
     def get_trade_recommendation(self):
         """
@@ -326,12 +238,12 @@ class AdaptiveMAStrategy:
             return "No trade signal at this time. Wait for better conditions."
         
         # Format the recommendation
-        signal_type = "BUY" if trade_params['order_type'] == 'buy' else "SELL"
+        signal_type = "BUY" if trade_params['signal'] == 1 else "SELL"
         
         recommendation = f"""
 {signal_type} SIGNAL - {self.symbol} - {datetime.now().strftime('%Y-%m-%d %H:%M')}
 ----------------------------------------------------------------------------------------
-Signal Strength: {trade_params['signal_strength']:.2f} ({trade_params['signal_strength']*100:.1f}%)
+Signal Strength: {trade_params['strength']:.2f} ({trade_params['strength']*100:.1f}%)
 Current Price: {trade_params['entry_price']:.5f}
 
 TRADE SETUP:
@@ -340,20 +252,20 @@ TRADE SETUP:
 - Take Profit: {trade_params['take_profit']:.5f}
 
 POSITION SIZING:
-- Risk: {trade_params['risk_percent']:.1f}% of account
+- Risk: {self.risk_percent:.1f}% of account
 - Position Size: {trade_params['position_size']:.2f} lots
-- Risk/Reward Ratio: 1:{trade_params['risk_reward_ratio']:.1f}
+- Potential Profit: {trade_params['potential_profit']:.2f}
 
 TIMEFRAME ANALYSIS:
-- Primary ({self.primary_timeframe}): {'Bullish' if self.current_signal == 1 else 'Bearish'}
+- Primary ({self.primary_timeframe}): {'Bullish' if trade_params['signal'] == 1 else 'Bearish'}
 """
         
         # Add additional information about secondary timeframes if available
         for tf in self.secondary_timeframes:
             if tf in self.data and self.data[tf] is not None:
-                data_with_indicators = self.calculate_indicators(timeframe=tf)
+                data_with_indicators = self.calculate_indicators(self.data[tf])
                 if data_with_indicators is not None and len(data_with_indicators) > 0:
-                    tf_signal = data_with_indicators['filtered_signal'].iloc[-1]
+                    tf_signal = data_with_indicators['signal'].iloc[-1]
                     tf_direction = 'Bullish' if tf_signal > 0 else 'Bearish' if tf_signal < 0 else 'Neutral'
                     recommendation += f"- {tf}: {tf_direction}\n"
         
@@ -379,12 +291,12 @@ TIMEFRAME ANALYSIS:
         
         # Execute the trade
         ticket = self.mt5_connector.open_position(
-            symbol=trade_params['symbol'],
-            order_type=trade_params['order_type'],
+            symbol=self.symbol,
+            order_type='buy' if trade_params['signal'] == 1 else 'sell',
             volume=trade_params['position_size'],
             sl=trade_params['stop_loss'],
             tp=trade_params['take_profit'],
-            comment=f"Signal: {self.current_signal}, Strength: {self.signal_strength:.2f}"
+            comment=f"Signal: {trade_params['signal']}, Strength: {trade_params['strength']:.2f}"
         )
         
         return ticket 
