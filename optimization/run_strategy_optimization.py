@@ -12,6 +12,7 @@ import logging
 import time
 import json
 import threading
+import signal
 from pathlib import Path
 import datetime
 
@@ -30,6 +31,9 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger('strategy_optimizer')
+
+# Global flag to indicate whether continuous optimization should continue
+CONTINUE_OPTIMIZATION = True
 
 def parse_args():
     """Parse command line arguments"""
@@ -60,6 +64,8 @@ def parse_args():
                       help='Optimization algorithm: bayesian, genetic, random, grid, optuna (default: bayesian)')
     parser.add_argument('--iterations', type=int, default=100,
                       help='Number of optimization iterations (default: 100)')
+    parser.add_argument('--continuous', action='store_true',
+                      help='Run continuous iterations until manually stopped')
     parser.add_argument('--parallel', type=int, default=4,
                       help='Number of parallel evaluations (default: 4)')
     
@@ -77,8 +83,19 @@ def parse_args():
     
     return parser.parse_args()
 
+def signal_handler(sig, frame):
+    """Handler for keyboard interrupt to gracefully stop optimization"""
+    global CONTINUE_OPTIMIZATION
+    logger.info("Received signal to stop optimization. Finishing current iterations and saving checkpoints...")
+    CONTINUE_OPTIMIZATION = False
+
 def main():
     """Main function to run the optimization process"""
+    global CONTINUE_OPTIMIZATION
+    
+    # Register signal handler for graceful termination
+    signal.signal(signal.SIGINT, signal_handler)
+    
     args = parse_args()
     
     # Create checkpoint directory if it doesn't exist
@@ -95,7 +112,14 @@ def main():
         strategies = [s.strip() for s in args.strategies.split(',')]
         secondary_timeframes = [s.strip() for s in args.secondary_timeframes.split(',')]
         
-        # Create the controller
+        # Set continuous mode if specified
+        if args.continuous:
+            logger.info("Running in continuous mode. Press Ctrl+C to stop.")
+            iterations_per_batch = 50  # Run in batches
+        else:
+            iterations_per_batch = args.iterations
+        
+        # Create the controller with the dashboard always enabled for continuous mode
         controller = StrategyOptimizerController(
             strategy_types=strategies,
             symbol=args.symbol,
@@ -105,16 +129,34 @@ def main():
             end_date=args.end_date,
             balance=args.balance,
             algorithm=args.algorithm,
-            iterations=args.iterations,
+            iterations=iterations_per_batch,
             parallel=args.parallel,
-            dashboard=args.dashboard,
+            dashboard=args.dashboard or args.continuous,  # Always enable dashboard for continuous mode
             dashboard_port=args.dashboard_port,
             checkpoint_dir=args.checkpoint_dir,
-            checkpoint_interval=args.checkpoint_interval
+            checkpoint_interval=args.checkpoint_interval,
+            continuous_mode=args.continuous
         )
         
-        # Run the optimization
-        controller.run_optimization()
+        # Run the optimization in a loop for continuous mode
+        if args.continuous:
+            batch_count = 0
+            try:
+                while CONTINUE_OPTIMIZATION:
+                    batch_count += 1
+                    logger.info(f"Starting optimization batch {batch_count}")
+                    controller.run_optimization(iteration_offset=iterations_per_batch * (batch_count - 1))
+                    if not CONTINUE_OPTIMIZATION:
+                        break
+                    logger.info(f"Completed optimization batch {batch_count}")
+                
+                logger.info("Continuous optimization completed or stopped manually")
+            except KeyboardInterrupt:
+                logger.info("Optimization interrupted by user. Saving final checkpoints...")
+                # Any final cleanup can be done here
+        else:
+            # Run the optimization once
+            controller.run_optimization()
         
     except ImportError as e:
         logger.error(f"Error importing modules: {e}")

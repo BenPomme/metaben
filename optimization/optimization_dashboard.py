@@ -11,10 +11,11 @@ from pathlib import Path
 import time
 import threading
 import logging
+import queue
 
 # Dashboard imports
 import dash
-from dash import dcc, html, callback, Output, Input, State
+from dash import dcc, html, callback, Output, Input, State, callback_context
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
@@ -33,16 +34,21 @@ class OptimizationDashboard:
     Interactive dashboard for visualizing optimization progress in real-time
     """
     
-    def __init__(self, config_path='config/optimization_config.json', checkpoint_dir='optimization_checkpoints'):
+    def __init__(self, config_path='config/optimization_config.json', checkpoint_dir='optimization_checkpoints', message_queue=None, stop_callback=None):
         """
         Initialize the dashboard
         
         Args:
             config_path: Path to optimization configuration file
             checkpoint_dir: Directory containing optimization checkpoints
+            message_queue: Queue for receiving messages from the controller
+            stop_callback: Function to call when the stop button is pressed
         """
         self.config_path = config_path
-        self.checkpoint_dir = checkpoint_dir
+        self.checkpoint_dir = Path(checkpoint_dir)
+        self.message_queue = message_queue or queue.Queue()
+        self.stop_callback = stop_callback
+        self.optimization_running = True
         
         # Load configuration
         with open(config_path, 'r') as f:
@@ -65,7 +71,10 @@ class OptimizationDashboard:
         self.app = dash.Dash(
             __name__,
             external_stylesheets=[dbc.themes.BOOTSTRAP],
-            suppress_callback_exceptions=True
+            suppress_callback_exceptions=True,
+            meta_tags=[
+                {"name": "viewport", "content": "width=device-width, initial-scale=1"}
+            ]
         )
         
         # Set up app layout
@@ -151,6 +160,17 @@ class OptimizationDashboard:
                     html.P("Last updated: " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
                            id="last-update-time", className="text-muted text-end"),
                 ])
+            ]),
+            
+            # Stop button
+            dbc.Row([
+                dbc.Col([
+                    html.Button('Stop Optimization', id='stop-button', 
+                                style={'background-color': '#d9534f', 'color': 'white', 
+                                       'border': 'none', 'padding': '10px 20px',
+                                       'border-radius': '5px', 'cursor': 'pointer'}),
+                    html.Span(id='stop-status', style={'margin-left': '10px'})
+                ], width=12)
             ]),
         ], fluid=True)
     
@@ -511,6 +531,23 @@ class OptimizationDashboard:
             except Exception as e:
                 logger.error(f"Error updating parameter importance: {e}")
                 return html.Div(f"Error calculating parameter importance: {str(e)}")
+        
+        @self.app.callback(
+            Output('stop-status', 'children'),
+            [Input('stop-button', 'n_clicks')],
+            [State('stop-status', 'children')]
+        )
+        def stop_optimization(n_clicks, current_status):
+            if not n_clicks:
+                return ""
+            
+            if callback_context.triggered:
+                if self.stop_callback:
+                    self.stop_callback()
+                    self.optimization_running = False
+                    return "Stopping optimization..."
+            
+            return current_status
     
     def _load_latest_data(self):
         """
@@ -522,10 +559,10 @@ class OptimizationDashboard:
         optimizations = {}
         
         # Create checkpoint dir if it doesn't exist
-        Path(self.checkpoint_dir).mkdir(parents=True, exist_ok=True)
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         
         # Scan the checkpoint directory for JSON files
-        for file_path in Path(self.checkpoint_dir).glob('*_best_config.json'):
+        for file_path in self.checkpoint_dir.glob('*_best_config.json'):
             try:
                 # Extract strategy type and symbol from filename
                 file_name = file_path.stem
@@ -540,7 +577,7 @@ class OptimizationDashboard:
                         best_config = json.load(f)
                     
                     # Find the latest metrics file for this strategy/symbol/timeframe
-                    metrics_files = list(Path(self.checkpoint_dir).glob(f'{strategy_type}_{symbol}_{timeframe}_metrics_*.csv'))
+                    metrics_files = list(self.checkpoint_dir.glob(f'{strategy_type}_{symbol}_{timeframe}_metrics_*.csv'))
                     if metrics_files:
                         # Sort by modification time (latest first)
                         latest_metrics_file = sorted(metrics_files, key=lambda x: x.stat().st_mtime, reverse=True)[0]
