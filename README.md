@@ -1,93 +1,143 @@
-# MetaTrader 5 Trading Automation for macOS
+# Advanced Trading Strategy with MetaTrader 5 Integration
 
-This project provides a framework for algorithmic trading with MetaTrader 5, specially adapted for macOS users. While the official MetaTrader 5 Python package is only available on Windows, this project offers a workaround for Mac users.
+## Overview
 
-## Features
+This project implements an advanced trading strategy system that targets approximately 1% daily profit using an adaptive moving average approach. The system integrates with MetaTrader 5 for obtaining market data and executing trades.
 
-- **Multiple Trading Strategies**:
-  - Moving Average Crossover Strategy
-  - RSI (Relative Strength Index) Strategy
-  - Extensible framework for adding custom strategies
-
-- **Backtesting Engine**:
-  - Test strategies on historical data
-  - Visualize results with detailed charts
-  - Calculate key performance metrics (profit/loss, win rate, drawdown, etc.)
-
-- **Strategy Optimization**:
-  - Find optimal parameters for each strategy
-  - Grid search across parameter combinations
-  - Save optimization results for later analysis
-
-- **macOS Compatible**:
-  - Works with MetaTrader 5 for macOS
-  - Provides signal generation that can be manually executed
-  - No need for Windows-only dependencies
+Key features include:
+- Multi-timeframe analysis for stronger trade signals
+- Adaptive volatility-based position sizing
+- Dynamic stop-loss and take-profit levels
+- Trend filters to avoid trading against major trends
+- Parameter optimization capabilities
+- Comprehensive backtesting with performance metrics
+- Live trading functionality with risk management
 
 ## Requirements
 
-- Python 3.7+
-- MetaTrader 5 installed on macOS
-- Required Python packages (see `requirements.txt`)
+- Python 3.8 or higher
+- MetaTrader 5 (installed and configured with an account)
+- Required Python packages (see `requirements_mt5.txt`)
 
 ## Installation
 
-1. **Clone the repository**:
-   ```
-   git clone <repository-url>
-   cd metatrader-macos
-   ```
+1. Clone this repository:
+```
+git clone <repository-url>
+cd trading-strategy-mt5
+```
 
-2. **Create a virtual environment** (optional but recommended):
-   ```
-   python -m venv venv
-   source venv/bin/activate
-   ```
+2. Install the required packages:
+```
+pip install -r requirements_mt5.txt
+```
 
-3. **Install dependencies**:
-   ```
-   pip install -r requirements.txt
-   ```
+3. Make sure MetaTrader 5 is installed and properly set up with a demo or live account.
+
+## System Architecture
+
+The system consists of several modules:
+
+1. **MT5 Connector** (`mt5_connector.py`): Handles connection to MetaTrader 5, data retrieval, and order execution.
+
+2. **Adaptive MA Strategy** (`adaptive_ma_strategy.py`): Implements the core trading strategy logic using adaptive moving averages across multiple timeframes.
+
+3. **Strategy Backtest** (`strategy_backtest.py`): Provides backtesting capabilities with detailed performance metrics.
+
+4. **Strategy Optimizer** (`strategy_optimizer.py`): Implements parameter optimization to find the best settings for the strategy.
+
+5. **Trading Application** (`trading_app.py`): Ties everything together into a user-friendly command-line application.
 
 ## Usage
 
-Since direct Python integration with MetaTrader 5 on macOS is limited, this project focuses on:
+### Command Line Arguments
 
-1. Developing and backtesting strategies
-2. Generating trading signals
-3. Creating clear instructions to manually execute in the MetaTrader 5 application
+The trading application supports the following command-line arguments:
 
-### Backtesting
+- `--symbol`: Trading symbol (default: EURUSD)
+- `--timeframe`: Primary timeframe (default: H1)
+- `--secondary`: Secondary timeframes (default: H4 D1)
+- `--mode`: Operation mode (backtest, optimize, or live)
+- `--start`: Start date for backtest/optimization (YYYY-MM-DD)
+- `--end`: End date for backtest/optimization (YYYY-MM-DD)
+- `--balance`: Initial balance for backtest (default: 10000.0)
+- `--config`: Strategy configuration file (default: strategy_config.json)
 
-Run backtests on historical data to evaluate strategy performance:
+### Running a Backtest
 
-```python
-python backtest.py --strategy ma_crossover --symbol EURUSD --timeframe H1
+```
+python trading_app.py --mode backtest --symbol EURUSD --timeframe H1 --secondary H4 D1 --start 2023-01-01 --end 2023-12-31
 ```
 
-### Optimization
+### Optimizing the Strategy Parameters
 
-Find the best parameters for your strategies:
-
-```python
-python optimize.py --strategy rsi --symbol EURUSD --timeframe H1
+```
+python trading_app.py --mode optimize --symbol EURUSD --timeframe H1 --secondary H4 D1 --start 2023-01-01 --end 2023-12-31
 ```
 
-### Signal Generation
+### Running Live Trading
 
-Generate trading signals that can be manually executed:
-
-```python
-python generate_signals.py --strategy ma_crossover --symbol EURUSD --timeframe H1
+```
+python trading_app.py --mode live --symbol EURUSD --timeframe H1 --secondary H4 D1
 ```
 
-## Adding Custom Strategies
+## Strategy Configuration
 
-The framework is designed to be easily extensible. To add a new strategy:
+The strategy parameters are stored in a JSON configuration file (`strategy_config.json`). The default configuration includes:
 
-1. Create a new Python file for your strategy (e.g., `strategies/my_strategy.py`)
-2. Implement the required methods following the strategy interface
-3. Register your strategy in the main application
+- Moving average periods (fast and slow)
+- Moving average types (EMA, SMA)
+- ATR period and multipliers for stop-loss and take-profit
+- Risk percentage per trade
+- Trend filter settings
+- Volatility filter settings
+- Multi-timeframe weights
+- Confirmation threshold
+- Daily profit target (1.0%)
+
+You can modify these parameters manually or use the optimization mode to find the best settings.
+
+## Performance Metrics
+
+The backtest results include the following performance metrics:
+
+- Absolute and percentage returns
+- Compound Annual Growth Rate (CAGR)
+- Maximum drawdown
+- Sharpe ratio
+- Profit factor
+- Total number of trades
+- Win rate
+- Maximum consecutive losses
+
+## Risk Management
+
+The strategy implements several risk management features:
+
+1. **Position Sizing**: Each trade's position size is calculated based on the account balance and the defined risk percentage.
+
+2. **Adaptive Stop-Loss**: Stop-loss levels are dynamically calculated based on the Average True Range (ATR) to adapt to market volatility.
+
+3. **Take-Profit Levels**: Take-profit levels are also adaptive and based on the ATR.
+
+4. **Daily Profit Target**: The strategy aims for a 1% daily profit target.
+
+5. **Trend Filters**: Trades are only taken in the direction of the overall trend.
+
+## Trading Signals
+
+The strategy generates trading signals based on:
+
+1. Moving average crossovers on the primary timeframe
+2. Confirmation from moving averages on secondary timeframes
+3. Trend filter confirmation
+4. Volatility conditions
+
+Signals are strengthened when multiple timeframes align in the same direction.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
@@ -95,4 +145,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Disclaimer
 
-Trading involves substantial risk of loss and is not suitable for everyone. This software is provided for educational purposes only. Past performance is not indicative of future results. 
+Trading involves risk. This software is for educational purposes only. Use at your own risk. Past performance does not guarantee future results. 
