@@ -3,9 +3,13 @@ import os
 import json
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, validator
+import logging
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class MLStrategyConfig(BaseModel):
     """Configuration for ML-Enhanced Trading Strategy"""
@@ -144,4 +148,59 @@ def save_config(config: MLStrategyConfig, config_path: str) -> None:
     
     # Save config to file
     with open(config_path, 'w') as f:
-        json.dump(config.dict(), f, indent=4) 
+        json.dump(config.dict(), f, indent=4)
+
+def load_best_parameters(strategy_type):
+    """
+    Load the best parameters for a specific strategy type
+    
+    Args:
+        strategy_type: Type of strategy ('ml_strategy' or 'medallion_strategy')
+        
+    Returns:
+        dict: Best parameters for the strategy
+    """
+    try:
+        # Use the repository root to find the config directory
+        repo_root = Path(__file__).parent.parent
+        config_path = repo_root / 'config' / 'best_parameters.json'
+        
+        with open(config_path, 'r') as f:
+            best_params = json.load(f)
+        
+        if strategy_type in best_params:
+            logger.info(f"Loaded best parameters for {strategy_type}")
+            return best_params[strategy_type]['parameters']
+        else:
+            logger.warning(f"No best parameters found for {strategy_type}")
+            return {}
+    except Exception as e:
+        logger.error(f"Error loading best parameters for {strategy_type}: {e}")
+        return {}
+
+def get_optimization_metrics(strategy_type):
+    """
+    Get the performance metrics for the best parameters of a specific strategy type
+    
+    Args:
+        strategy_type: Type of strategy ('ml_strategy' or 'medallion_strategy')
+        
+    Returns:
+        dict: Performance metrics for the best parameters
+    """
+    try:
+        # Use the repository root to find the config directory
+        repo_root = Path(__file__).parent.parent
+        config_path = repo_root / 'config' / 'best_parameters.json'
+        
+        with open(config_path, 'r') as f:
+            best_params = json.load(f)
+        
+        if strategy_type in best_params and 'metrics' in best_params[strategy_type]:
+            return best_params[strategy_type]['metrics']
+        else:
+            logger.warning(f"No metrics found for {strategy_type}")
+            return {}
+    except Exception as e:
+        logger.error(f"Error loading metrics for {strategy_type}: {e}")
+        return {} 

@@ -158,4 +158,7 @@ celerybeat-schedule
 *.json
 
 # macOS
-.DS_Store 
+.DS_Store
+
+# But allow specific config files
+!config/best_parameters.json 

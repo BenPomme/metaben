@@ -1,0 +1,53 @@
+{
+  "ml_strategy": {
+    "parameters": {
+      "lookback_periods": 44,
+      "prediction_horizon": 5,
+      "model_type": "xgboost",
+      "feature_selection": "pca",
+      "stop_loss_pct": 2.95,
+      "take_profit_pct": 1.46,
+      "risk_per_trade_pct": 1.13,
+      "confidence_threshold": 0.57
+    },
+    "metrics": {
+      "win_rate": 75.00,
+      "annual_return": 37.48,
+      "max_drawdown": 10.69,
+      "profit_factor": 2.19,
+      "sharpe_ratio": 3.00,
+      "total_trades": 120
+    },
+    "optimization_date": "2023-06-15"
+  },
+  "medallion_strategy": {
+    "parameters": {
+      "fast_ma_periods": 26,
+      "slow_ma_periods": 142,
+      "rsi_periods": 16,
+      "rsi_overbought": 79,
+      "rsi_oversold": 31,
+      "volatility_factor": 1.7099,
+      "stop_loss_pct": 0.7367,
+      "take_profit_pct": 2.3250,
+      "risk_per_trade_pct": 0.9979
+    },
+    "metrics": {
+      "win_rate": 47.29,
+      "annual_return": 18.77,
+      "max_drawdown": 18.88,
+      "profit_factor": 1.16,
+      "sharpe_ratio": 1.45,
+      "total_trades": 120
+    },
+    "optimization_date": "2023-06-15"
+  },
+  "optimization_settings": {
+    "symbol": "EURUSD",
+    "timeframe": "H1",
+    "start_date": "2022-01-01",
+    "end_date": "2022-12-31",
+    "balance": 10000,
+    "algorithm": "random"
+  }
+} 
