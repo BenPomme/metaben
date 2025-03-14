@@ -6,12 +6,37 @@ This module provides a simple interface for:
 - Retrieving historical data
 - Placing, modifying and closing orders
 - Getting account information
+
+NOTE: The MetaTrader5 Python package is ONLY available on Windows.
+If you're using macOS or Linux, you'll need to use a VM, Wine, or a third-party bridge service.
 """
 import time
 import pandas as pd
 import numpy as np
+import platform
 from datetime import datetime, timedelta
-import MetaTrader5 as mt5
+
+# Add platform check with helpful message
+import sys
+if platform.system() != "Windows":
+    print("WARNING: MetaTrader5 Python package is only officially supported on Windows.")
+    print("You are running on:", platform.system())
+    print("Options:")
+    print("1. Use a Windows virtual machine")
+    print("2. Try Wine on macOS/Linux (results may vary)")
+    print("3. Use a Windows VPS/cloud service")
+    print("4. Consider third-party services like MetaAPI.cloud")
+    print("Attempting to import MetaTrader5 anyway...")
+
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    print("ERROR: Could not import MetaTrader5 package.")
+    print("This package is only available on Windows platforms.")
+    print("See README.md for alternative options for your platform.")
+    # Don't raise an exception here to allow the code to be loaded
+    # The error will occur when methods are actually called
+    mt5 = None
 
 class MT5Connector:
     """
@@ -28,23 +53,27 @@ class MT5Connector:
             server: MT5 server name (optional)
             path: Path to MT5 terminal executable (optional)
         """
-        self.login = 7086870
-        self.password = Babebibobu12!
+        self.login = login
+        self.password = password
         self.server = server
         self.path = path
         self.connected = False
         
+        # Check if MT5 is available
+        if mt5 is None:
+            print("WARNING: MetaTrader5 package is not available. Connection will fail.")
+        
         # Dictionary to map timeframe strings to MT5 timeframe constants
         self.timeframes = {
-            "1m": mt5.TIMEFRAME_M1,
-            "5m": mt5.TIMEFRAME_M5,
-            "15m": mt5.TIMEFRAME_M15,
-            "30m": mt5.TIMEFRAME_M30,
-            "1h": mt5.TIMEFRAME_H1,
-            "4h": mt5.TIMEFRAME_H4,
-            "1d": mt5.TIMEFRAME_D1,
-            "1w": mt5.TIMEFRAME_W1,
-            "1mo": mt5.TIMEFRAME_MN1
+            "1m": mt5.TIMEFRAME_M1 if mt5 else 1,
+            "5m": mt5.TIMEFRAME_M5 if mt5 else 5,
+            "15m": mt5.TIMEFRAME_M15 if mt5 else 15,
+            "30m": mt5.TIMEFRAME_M30 if mt5 else 30,
+            "1h": mt5.TIMEFRAME_H1 if mt5 else 60,
+            "4h": mt5.TIMEFRAME_H4 if mt5 else 240,
+            "1d": mt5.TIMEFRAME_D1 if mt5 else 1440,
+            "1w": mt5.TIMEFRAME_W1 if mt5 else 10080,
+            "1mo": mt5.TIMEFRAME_MN1 if mt5 else 43200
         }
         
         # Order type mapping
@@ -64,6 +93,13 @@ class MT5Connector:
         Returns:
             bool: True if connection successful, False otherwise
         """
+        # Check if MT5 package is available
+        if mt5 is None:
+            print("ERROR: Cannot connect - MetaTrader5 package is not available on this platform.")
+            print("This is likely because you're not on Windows, which is required for MT5 Python integration.")
+            print("See README.md for alternative options for your platform.")
+            return False
+            
         # Initialize MT5 connection
         if not mt5.initialize(path=self.path):
             print(f"MT5 initialization failed. Error code: {mt5.last_error()}")

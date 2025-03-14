@@ -19,6 +19,20 @@ Key features include:
 - MetaTrader 5 (installed and configured with an account)
 - Required Python packages (see `requirements_mt5.txt`)
 
+## Platform Compatibility
+
+**Important Note**: The MetaTrader 5 Python package (`MetaTrader5`) is officially available only for Windows. If you're using this system on a different operating system, consider the following options:
+
+### For Windows Users:
+- Install MetaTrader 5 and the Python package directly.
+- Follow the standard installation instructions below.
+
+### For macOS/Linux Users:
+1. **Virtual Machine Option**: Run Windows in a virtual machine with MetaTrader 5 installed.
+2. **Wine Option**: Try using Wine to run MetaTrader 5 (results may vary).
+3. **Cloud Option**: Use a Windows VPS/cloud service to host MetaTrader 5 and this trading system.
+4. **Bridge Services**: Consider third-party services like MetaAPI.cloud that provide REST/WebSocket access to MT5.
+
 ## Installation
 
 1. Clone this repository:
@@ -31,6 +45,7 @@ cd trading-strategy-mt5
 ```
 pip install -r requirements_mt5.txt
 ```
+Note: This will only work on Windows for the MetaTrader5 package. Other dependencies will install on any OS.
 
 3. Make sure MetaTrader 5 is installed and properly set up with a demo or live account.
 

@@ -88,17 +88,45 @@ def load_config(config_file):
 
 def connect_to_mt5():
     """Connect to MetaTrader 5"""
-    mt5_connector = MT5Connector()
-    if not mt5_connector.connect():
-        print("Failed to connect to MetaTrader 5. Make sure it's running.")
+    try:
+        mt5_connector = MT5Connector()
+        if not mt5_connector.connect():
+            print("\nFailed to connect to MetaTrader 5.")
+            print("\nIf you're on a non-Windows platform (macOS/Linux), please note:")
+            print("- The official MetaTrader5 Python package only works on Windows")
+            print("- See the 'Platform Compatibility' section in README.md for alternatives")
+            
+            # Ask if the user wants to continue without MT5 connection
+            response = input("\nDo you want to continue without MT5 connection? (y/n): ").lower()
+            if response in ['y', 'yes']:
+                print("Continuing without MT5 connection. Some functionality will be limited.")
+                return None
+            else:
+                print("Exiting application.")
+                sys.exit(0)
+            return None
+        
+        print("Connected to MetaTrader 5")
+        print(f"Account: {mt5_connector.account_info['name']} (#{mt5_connector.account_info['login']})")
+        print(f"Balance: ${mt5_connector.account_info['balance']:.2f}")
+        print(f"Equity: ${mt5_connector.account_info['equity']:.2f}")
+        
+        return mt5_connector
+    except Exception as e:
+        print(f"\nError connecting to MetaTrader 5: {str(e)}")
+        print("\nIf you're on a non-Windows platform (macOS/Linux), please note:")
+        print("- The official MetaTrader5 Python package only works on Windows")
+        print("- See the 'Platform Compatibility' section in README.md for alternatives")
+        
+        # Ask if the user wants to continue without MT5 connection
+        response = input("\nDo you want to continue without MT5 connection? (y/n): ").lower()
+        if response in ['y', 'yes']:
+            print("Continuing without MT5 connection. Some functionality will be limited.")
+            return None
+        else:
+            print("Exiting application.")
+            sys.exit(0)
         return None
-    
-    print("Connected to MetaTrader 5")
-    print(f"Account: {mt5_connector.account_info['name']} (#{mt5_connector.account_info['login']})")
-    print(f"Balance: ${mt5_connector.account_info['balance']:.2f}")
-    print(f"Equity: ${mt5_connector.account_info['equity']:.2f}")
-    
-    return mt5_connector
 
 
 def run_backtest(args, config, mt5_connector=None):
