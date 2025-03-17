@@ -1,0 +1,29 @@
+[33mcommit 114449ee9f782b77340c8a676a4a703c0a6d988a[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m
+Author: Your Name <you@example.com>
+Date:   Sat Mar 15 17:08:43 2025 +0100
+
+    Clean and organize code workspace
+
+[33mcommit c65b67229edb579fa80675d80e91483c4bf2b995[m
+Author: Your Name <you@example.com>
+Date:   Sat Mar 15 17:05:01 2025 +0100
+
+    Fix array initialization errors and optimize EA parameters
+
+[33mcommit f9f593cb75873f5946bab0205bfdf9f599206299[m
+Author: Your Name <you@example.com>
+Date:   Sat Mar 15 09:36:11 2025 +0100
+
+    Add extended backtest comparison (2023-2025) for ML and Medallion strategies
+
+[33mcommit 47ec68940b378f014a78becaae24cf7fd8d005b0[m
+Author: Your Name <you@example.com>
+Date:   Fri Mar 14 22:54:45 2025 +0100
+
+    Add trading strategy competition framework
+
+[33mcommit e3a145d94f8227af4284e91b35f962a54a18ddf7[m
+Author: Your Name <you@example.com>
+Date:   Fri Mar 14 22:31:48 2025 +0100
+
+    Complete trading strategy optimization system with testing and MT5 EA implementation
